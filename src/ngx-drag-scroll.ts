@@ -37,6 +37,8 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   private _dragBtns: number = this.MOUSE_LEFT | this.MOUSE_CENTER | this.MOUSE_RIGHT;
 
+  private _dragCursor: string;
+
   /**
    * Is the user currently pressing the element
    */
@@ -72,6 +74,8 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   wrapper: HTMLDivElement | null;
 
   scrollbarWidth: string;
+
+  oldCursor: string | null;
 
   onMouseMoveHandler = this.onMouseMove.bind(this);
   onMouseDownHandler = this.onMouseDown.bind(this);
@@ -450,6 +454,11 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
     if (this.isPressed && !this.disabled) {
       e.preventDefault();
+
+      if(this._dragCursor) {
+        document.body.style.cursor = this._dragCursor;
+      }
+
       // Drag X
       if (!this.xDisabled && !this.dragDisabled) {
         this.el.nativeElement.scrollLeft =
@@ -471,6 +480,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   onMouseDown(e: MouseEvent) {
     if(!this.isButtonEnabled(e.button)) {
       return;
+    }
+
+    if(this._dragCursor) {
+      this.oldCursor = document.body.style.cursor;
     }
 
     this.isPressed = true;
@@ -506,6 +519,11 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
     if (this.isPressed) {
       this.isPressed = false;
+
+      if(this._dragCursor) {
+        document.body.style.cursor = this.oldCursor;
+      }
+
       if (!this.snapDisabled) {
         this.locateCurrentIndex(true);
       } else {
