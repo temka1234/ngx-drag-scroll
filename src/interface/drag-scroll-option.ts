@@ -5,4 +5,5 @@ export interface DragScrollOption {
   xDisabled: boolean;
   nav: boolean;
   dragBtns: number;
+  dragCursor: string;
 }

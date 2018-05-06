@@ -366,6 +366,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   get dragBtns() { return this._dragBtns; }
   set dragBtns(value: number) { this._dragBtns = value; }
 
+  @Input('drag-scroll-cursor')
+  get dragCursor() { return this._dragCursor; }
+  set dragCursor(value: string) { this._dragCursor = value; }
+
   constructor(
     private el: ElementRef,
     private renderer: Renderer2
@@ -455,8 +459,8 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     if (this.isPressed && !this.disabled) {
       e.preventDefault();
 
-      if(this._dragCursor) {
-        document.body.style.cursor = this._dragCursor;
+      if(this.dragCursor) {
+        document.body.style.cursor = this.dragCursor;
       }
 
       // Drag X
@@ -482,7 +486,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
       return;
     }
 
-    if(this._dragCursor) {
+    if(this.dragCursor) {
       this.oldCursor = document.body.style.cursor;
     }
 
@@ -520,7 +524,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     if (this.isPressed) {
       this.isPressed = false;
 
-      if(this._dragCursor) {
+      if(this.dragCursor) {
         document.body.style.cursor = this.oldCursor;
       }
 
@@ -534,7 +538,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   isButtonEnabled(button: number) {
     return button < this.MOUSE_BTNS.length &&
-           this._dragBtns & this.MOUSE_BTNS[button];
+           this.dragBtns & this.MOUSE_BTNS[button];
   }
 
   /*
