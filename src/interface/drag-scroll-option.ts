@@ -4,4 +4,5 @@ export interface DragScrollOption {
   yDisabled: boolean;
   xDisabled: boolean;
   nav: boolean;
+  dragBtns: number;
 }

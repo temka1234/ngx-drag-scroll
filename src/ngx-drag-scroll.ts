@@ -18,6 +18,10 @@ import { DragScrollOption } from './interface/drag-scroll-option';
   selector: '[dragScroll]'
 })
 export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoCheck {
+  readonly MOUSE_LEFT = 1;
+  readonly MOUSE_CENTER = 2;
+  readonly MOUSE_RIGHT = 4;
+  readonly MOUSE_BTNS = [this.MOUSE_LEFT, this.MOUSE_RIGHT, this.MOUSE_CENTER];
 
   private _scrollbarHidden: boolean;
 
@@ -30,6 +34,9 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   private _dragDisabled: boolean;
 
   private _snapDisabled: boolean;
+
+  private _dragBtns: number = this.MOUSE_LEFT | this.MOUSE_CENTER | this.MOUSE_RIGHT;
+
   /**
    * Is the user currently pressing the element
    */
@@ -351,6 +358,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   get snapDisabled() { return this._snapDisabled; }
   set snapDisabled(value: boolean) { this._snapDisabled = value; }
 
+  @Input('drag-mouse-btns')
+  get dragBtns() { return this._dragBtns; }
+  set dragBtns(value: number) { this._dragBtns = value; }
+
   constructor(
     private el: ElementRef,
     private renderer: Renderer2
@@ -372,11 +383,12 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     this.checkNavStatus();
   }
 
-  public attach({disabled, scrollbarHidden, yDisabled, xDisabled}: DragScrollOption): void {
+  public attach({disabled, scrollbarHidden, yDisabled, xDisabled, dragBtns}: DragScrollOption): void {
     this.disabled = disabled;
     this.scrollbarHidden = scrollbarHidden;
     this.yDisabled = yDisabled;
     this.xDisabled = xDisabled;
+    this.dragBtns = dragBtns;
     this.ngOnChanges();
   }
 
@@ -432,6 +444,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   }
 
   onMouseMove(e: MouseEvent) {
+    if(!this.isButtonEnabled(e.button)) {
+      return;
+    }
+
     if (this.isPressed && !this.disabled) {
       e.preventDefault();
       // Drag X
@@ -453,6 +469,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
 
   onMouseDown(e: MouseEvent) {
+    if(!this.isButtonEnabled(e.button)) {
+      return;
+    }
+
     this.isPressed = true;
     this.downX = e.clientX;
     this.downY = e.clientY;
@@ -480,6 +500,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   }
 
   onMouseUp(e: MouseEvent) {
+    if(!this.isButtonEnabled(e.button)) {
+      return;
+    }
+
     if (this.isPressed) {
       this.isPressed = false;
       if (!this.snapDisabled) {
@@ -488,6 +512,11 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
         this.locateCurrentIndex();
       }
     }
+  }
+
+  isButtonEnabled(button: number) {
+    return button < this.MOUSE_BTNS.length &&
+           this._dragBtns & this.MOUSE_BTNS[button];
   }
 
   /*
