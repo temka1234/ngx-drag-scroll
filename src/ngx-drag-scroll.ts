@@ -357,7 +357,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   @Input('drag-scroll-cursor')
   get dragCursor() { return this._dragCursor; }
-  set dragCursor(value: string) { this._dragCursor = value; }
+  set dragCursor(value: string | null) { this._dragCursor = value; }
 
   @Input('snap-offset')
   get snapOffset() { return this._snapOffset; }
@@ -380,7 +380,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(event: MouseEvent) {
-    if(!this.isButtonEnabled(e.button)) {
+    if(!this.isButtonEnabled(event.button)) {
       return;
     }
 
@@ -407,7 +407,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   @HostListener('document:mouseup', ['$event'])
   onMouseUp(event: MouseEvent) {
-    if(!this.isButtonEnabled(e.button)) {
+    if(!this.isButtonEnabled(event.button)) {
       return;
     }
 
@@ -428,7 +428,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   @HostListener('mousedown', ['$event'])
   onMouseDown(event: MouseEvent) {
-    if(!this.isButtonEnabled(e.button)) {
+    if(!this.isButtonEnabled(event.button)) {
       return;
     }
 
