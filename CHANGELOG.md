@@ -1,3 +1,16 @@
+#### 1.8.2
+Issue #54 - fix: prevent click propagation immediately after drag and drop
+
+#### 1.8.1
+
+Issue #140 - fix: auto reset scroll position on iOS and Android
+#### 1.8.0
+
+Issue #138 - feat: angular6 support
+#### 1.7.9
+
+Issue #137 - feat: snap-offset to optionally show portion of previous elements
+
 #### 1.7.8
 
 Issue #133 - Do not reset scroll location on disabling/enabling the drag.

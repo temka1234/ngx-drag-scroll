@@ -23,21 +23,23 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   readonly MOUSE_RIGHT = 4;
   readonly MOUSE_BTNS = [this.MOUSE_LEFT, this.MOUSE_RIGHT, this.MOUSE_CENTER];
 
-  private _scrollbarHidden: boolean;
+  private _scrollbarHidden = false;
 
-  private _disabled: boolean;
+  private _disabled = false;
 
-  private _xDisabled: boolean;
+  private _xDisabled = false;
 
-  private _yDisabled: boolean;
+  private _yDisabled = false;
 
-  private _dragDisabled: boolean;
+  private _dragDisabled = false;
 
-  private _snapDisabled: boolean;
+  private _snapDisabled = false;
 
   private _dragBtns: number = this.MOUSE_LEFT | this.MOUSE_CENTER | this.MOUSE_RIGHT;
 
-  private _dragCursor: string;
+  private _dragCursor: string | null = null;
+
+  private _snapOffset = 0;
 
   /**
    * Is the user currently pressing the element
@@ -49,9 +51,9 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
    */
   isScrolling = false;
 
-  scrollTimer: number;
+  scrollTimer = -1;
 
-  scrollToTimer: number;
+  scrollToTimer = -1;
 
   /**
    * The x coordinates on the element
@@ -65,27 +67,17 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   displayType: string | null = 'block';
 
-  elWidth: string | null;
+  elWidth: string | null = null;
 
-  elHeight: string | null;
+  elHeight: string | null = null;
 
-  parentNode: HTMLElement;
+  parentNode: HTMLElement | null = null;
 
-  wrapper: HTMLDivElement | null;
+  wrapper: HTMLDivElement | null = null;
 
-  scrollbarWidth: string;
+  scrollbarWidth: string | null = null;
 
-  oldCursor: string | null;
-
-  onMouseMoveHandler = this.onMouseMove.bind(this);
-  onMouseDownHandler = this.onMouseDown.bind(this);
-  onScrollHandler = this.onScroll.bind(this);
-  onMouseUpHandler = this.onMouseUp.bind(this);
-
-  mouseMoveListener: Function;
-  mouseDownListener: Function;
-  scrollListener: Function;
-  mouseUpListener: Function;
+  oldCursor: string | null = null;
 
   currIndex = 0;
 
@@ -100,7 +92,6 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   @Output() reachesLeftBound = new EventEmitter<boolean>();
 
   @Output() reachesRightBound = new EventEmitter<boolean>();
-
 
   private disableScroll(axis: string): void {
     this.el.nativeElement.style[`overflow-${axis}`] = 'hidden';
@@ -128,7 +119,9 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
         this.el.nativeElement.style.width = `calc(100% + ${this.scrollbarWidth})`;
         this.el.nativeElement.style.height = `calc(100% + ${this.scrollbarWidth})`;
         // set the wrapper as child (instead of the element)
-        this.parentNode.replaceChild(this.wrapper, this.el.nativeElement);
+        if (this.parentNode !== null) {
+          this.parentNode.replaceChild(this.wrapper, this.el.nativeElement);
+        }
         // set element as child of wrapper
         this.wrapper.appendChild(this.el.nativeElement);
       }
@@ -139,8 +132,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     if (this.wrapper) {
       this.el.nativeElement.style.width = this.elWidth;
       this.el.nativeElement.style.height = this.elHeight;
-      this.parentNode.removeChild(this.wrapper);
-      this.parentNode.appendChild(this.el.nativeElement);
+      if (this.parentNode !== null) {
+        this.parentNode.removeChild(this.wrapper);
+        this.parentNode.appendChild(this.el.nativeElement);
+      }
       this.wrapper = null;
     }
   }
@@ -218,7 +213,7 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     const self = this;
     self.isAnimating = true;
     const start = element.scrollLeft,
-      change = to - start,
+      change = to - start - this.snapOffset,
       increment = 20;
     let currentTime = 0;
 
@@ -310,12 +305,6 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     return to;
   }
 
-  private resetScrollLocation() {
-    const ele = this.el.nativeElement;
-    this.scrollTo(ele, 0, 0);
-    this.currIndex = 0;
-  }
-
   private markElDimension() {
     if (this.wrapper) {
       this.elWidth = this.wrapper.style.width;
@@ -370,6 +359,10 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
   get dragCursor() { return this._dragCursor; }
   set dragCursor(value: string) { this._dragCursor = value; }
 
+  @Input('snap-offset')
+  get snapOffset() { return this._snapOffset; }
+  set snapOffset(value: number) { this._snapOffset = value; }
+
   constructor(
     private el: ElementRef,
     private renderer: Renderer2
@@ -377,22 +370,102 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     this.scrollbarWidth = `${this.getScrollbarWidth()}px`;
     el.nativeElement.style.overflow = 'auto';
     el.nativeElement.style.whiteSpace = 'noWrap';
-
-    this.mouseDownListener = renderer.listen(el.nativeElement, 'mousedown', this.onMouseDownHandler);
-    this.scrollListener = renderer.listen(el.nativeElement, 'scroll', this.onScrollHandler);
-    this.mouseMoveListener = renderer.listen('document', 'mousemove', this.onMouseMoveHandler);
-    this.mouseUpListener = renderer.listen('document', 'mouseup', this.onMouseUpHandler);
   }
 
   @HostListener('window:resize', ['$event'])
   onResize() {
     this.markElDimension();
-    this.resetScrollLocation();
     this.checkNavStatus();
   }
 
-  public attach({disabled, scrollbarHidden, yDisabled, xDisabled, dragBtns}: DragScrollOption): void {
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent) {
+    if(!this.isButtonEnabled(e.button)) {
+      return;
+    }
+
+    if (this.isPressed && !this.disabled) {
+      if(this.dragCursor) {
+        document.body.style.cursor = this.dragCursor;
+      }
+
+      // // Drag X
+      if (!this.xDisabled && !this.dragDisabled) {
+        this.el.nativeElement.scrollLeft =
+          this.el.nativeElement.scrollLeft - event.clientX + this.downX;
+        this.downX = event.clientX;
+      }
+
+      // Drag Y
+      if (!this.yDisabled && !this.dragDisabled) {
+        this.el.nativeElement.scrollTop =
+          this.el.nativeElement.scrollTop - event.clientY + this.downY;
+        this.downY = event.clientY;
+      }
+    }
+  }
+
+  @HostListener('document:mouseup', ['$event'])
+  onMouseUp(event: MouseEvent) {
+    if(!this.isButtonEnabled(e.button)) {
+      return;
+    }
+
+    if (this.isPressed) {
+      this.isPressed = false;
+
+      if(this.dragCursor) {
+        document.body.style.cursor = this.oldCursor;
+      }
+
+      if (!this.snapDisabled) {
+        this.locateCurrentIndex(true);
+      } else {
+        this.locateCurrentIndex();
+      }
+    }
+  }
+
+  @HostListener('mousedown', ['$event'])
+  onMouseDown(event: MouseEvent) {
+    if(!this.isButtonEnabled(e.button)) {
+      return;
+    }
+
+    if(this.dragCursor) {
+      this.oldCursor = document.body.style.cursor;
+    }
+
+    this.isPressed = true;
+    this.downX = event.clientX;
+    this.downY = event.clientY;
+    clearTimeout(this.scrollToTimer);
+  }
+
+  @HostListener('scroll', ['$event'])
+  onScroll(event: Event) {
+    const ele = this.el.nativeElement;
+    if ((ele.scrollLeft + ele.offsetWidth) >= ele.scrollWidth) {
+      this.scrollReachesRightEnd = true;
+    } else {
+      this.scrollReachesRightEnd = false;
+    }
+    this.checkNavStatus();
+    if (!this.isPressed && !this.isAnimating && !this.snapDisabled) {
+      this.isScrolling = true;
+      clearTimeout(this.scrollTimer);
+      this.scrollTimer = window.setTimeout(() => {
+        this.isScrolling = false;
+        this.locateCurrentIndex(true);
+      }, 500);
+    } else {
+      this.locateCurrentIndex();
+    }
+  }
+
+  public attach({disabled, snapDisabled, scrollbarHidden, yDisabled, xDisabled, dragBtns}: DragScrollOption): void {
     this.disabled = disabled;
+    this.snapDisabled = snapDisabled;
     this.scrollbarHidden = scrollbarHidden;
     this.yDisabled = yDisabled;
     this.xDisabled = xDisabled;
@@ -425,7 +498,6 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
     this.markElDimension();
 
     this.renderer.setAttribute(this.el.nativeElement, 'drag-scroll', 'true');
-
     // prevent Firefox from dragging images
     document.addEventListener('dragstart', function (e) {
       e.preventDefault();
@@ -447,93 +519,6 @@ export class DragScrollDirective implements OnDestroy, OnInit, OnChanges, DoChec
 
   ngOnDestroy() {
     this.renderer.setAttribute(this.el.nativeElement, 'drag-scroll', 'false');
-    this.mouseMoveListener();
-    this.mouseUpListener();
-  }
-
-  onMouseMove(e: MouseEvent) {
-    if(!this.isButtonEnabled(e.button)) {
-      return;
-    }
-
-    if (this.isPressed && !this.disabled) {
-      e.preventDefault();
-
-      if(this.dragCursor) {
-        document.body.style.cursor = this.dragCursor;
-      }
-
-      // Drag X
-      if (!this.xDisabled && !this.dragDisabled) {
-        this.el.nativeElement.scrollLeft =
-          this.el.nativeElement.scrollLeft - e.clientX + this.downX;
-        this.downX = e.clientX;
-      }
-
-      // Drag Y
-      if (!this.yDisabled && !this.dragDisabled) {
-        this.el.nativeElement.scrollTop =
-          this.el.nativeElement.scrollTop - e.clientY + this.downY;
-        this.downY = e.clientY;
-      }
-    }
-    return !this.isPressed;
-  }
-
-
-  onMouseDown(e: MouseEvent) {
-    if(!this.isButtonEnabled(e.button)) {
-      return;
-    }
-
-    if(this.dragCursor) {
-      this.oldCursor = document.body.style.cursor;
-    }
-
-    this.isPressed = true;
-    this.downX = e.clientX;
-    this.downY = e.clientY;
-    clearTimeout(this.scrollToTimer);
-  }
-
-  onScroll() {
-    const ele = this.el.nativeElement;
-    if ((ele.scrollLeft + ele.offsetWidth) >= ele.scrollWidth) {
-      this.scrollReachesRightEnd = true;
-    } else {
-      this.scrollReachesRightEnd = false;
-    }
-    this.checkNavStatus();
-    if (!this.isPressed && !this.isAnimating && !this.snapDisabled) {
-      this.isScrolling = true;
-      clearTimeout(this.scrollTimer);
-      this.scrollTimer = window.setTimeout(() => {
-        this.isScrolling = false;
-        this.locateCurrentIndex(true);
-      }, 500);
-    } else {
-      this.locateCurrentIndex();
-    }
-  }
-
-  onMouseUp(e: MouseEvent) {
-    if(!this.isButtonEnabled(e.button)) {
-      return;
-    }
-
-    if (this.isPressed) {
-      this.isPressed = false;
-
-      if(this.dragCursor) {
-        document.body.style.cursor = this.oldCursor;
-      }
-
-      if (!this.snapDisabled) {
-        this.locateCurrentIndex(true);
-      } else {
-        this.locateCurrentIndex();
-      }
-    }
   }
 
   isButtonEnabled(button: number) {
